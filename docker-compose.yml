@@ -1,0 +1,93 @@
+version: "3.8"
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: argo_postgres
+    environment:
+      POSTGRES_DB: argo_data
+      POSTGRES_USER: argo_user
+      POSTGRES_PASSWORD: argo_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - argo_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: argo_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - argo_network
+
+  # Python ML Services
+  ml-services:
+    build: ./ml-services
+    container_name: argo_ml_services
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://argo_user:argo_password@postgres:5432/argo_data
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./ml-services:/app
+      - ./data:/app/data
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - argo_network
+
+  # Node.js Backend API
+  backend:
+    build: ./backend
+    container_name: argo_backend
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://argo_user:argo_password@postgres:5432/argo_data
+      - REDIS_URL=redis://redis:6379
+      - PYTHON_ML_SERVICE_URL=http://ml-services:8000
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+      - ml-services
+    networks:
+      - argo_network
+
+  # React Frontend
+  frontend:
+    build: ./frontend
+    container_name: argo_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:3001
+      - REACT_APP_WS_URL=http://localhost:3001
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - argo_network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  argo_network:
+    driver: bridge
