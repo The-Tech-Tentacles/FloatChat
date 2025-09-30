@@ -89,7 +89,7 @@ const FloatMap = () => {
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-gray-900 flex items-center">
           <Map className="h-5 w-5 mr-2 text-blue-600" />
-          ARGO Float Network
+          ARGO Float Map
         </CardTitle>
       </CardHeader>
       <CardContent>
